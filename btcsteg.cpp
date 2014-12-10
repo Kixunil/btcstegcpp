@@ -231,7 +231,6 @@ vector<BTCKeyPair> vanitygen(const string &prefix, bool errtodevnull = true) {
 }
 
 const size_t prefixlen = 3;
-const char lenchars[prefixlen][20] = { "23456789ABCDEFGHJKL", "MNPQRSTUVWXYZabcdef", "ghijkmnopqrstuvwxyz"};
 
 void encrypt() {
 	string pass(readPassword(true));
@@ -263,9 +262,10 @@ void encrypt() {
 	AutoSeededRandomPool rng;
 	rng.GenerateBlock(&rnd, 1);
 	size_t ml = (b58ciphertext.size() + 1) % prefixlen;
+	size_t ccount = 58 / prefixlen;
 
-	// I know rnd % 19 isn't perfect, but it should be sufficient
-	b58ciphertext = lenchars[ml][rnd % 19] + b58ciphertext;
+	// TODO: better rng
+	b58ciphertext = pszBase58[57 - (ml * ccount + rnd % ccount)] + b58ciphertext;
 
 	vector<string> prefixes;
 	size_t i, j;
@@ -278,7 +278,6 @@ void encrypt() {
 	// Output isn't correctly sorted - we have to do it manually
 	for(i = 0; i < prefixes.size(); ++i) {
 		for(j = 0; j < tmppairs.size(); ++j) {
-			//fprintf(stderr, "Comparing: %s == %s\n", tmppairs[j].addr.substr(0, prefixes[i].size()).c_str(), prefixes[i].c_str());
 			if(tmppairs[j].addr.substr(0, prefixes[i].size()) == prefixes[i]) {
 				pairs.push_back(tmppairs[j]);
 				break;
@@ -323,12 +322,16 @@ void decrypt() {
 	char lc = b58ciphertext[0];
 
 	size_t i;
-	for(i = 0; i < prefixlen; ++i) {
-		for(size_t j = 0; lenchars[i][j]; ++j) {
-			if(lc == lenchars[i][j]) goto searchend;
-		}
+
+	for(i = 0; i < 58; ++i) {
+		if(pszBase58[i] == lc) break;
 	}
-searchend:
+
+	size_t ccount = 58 / prefixlen;
+	i = (57 - i);
+	i -= i % ccount;
+	i /= ccount;
+
 	b58ciphertext = b58ciphertext.substr(1, b58ciphertext.size() - 1 - (prefixlen - i) % prefixlen);
 
 	string plaintext;
